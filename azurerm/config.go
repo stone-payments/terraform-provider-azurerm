@@ -125,6 +125,7 @@ type ArmClient struct {
 
 	// API Management
 	apiManagementServiceClient apimanagement.ServiceClient
+	apiManagementGroupClient   apimanagement.GroupClient
 
 	// Application Insights
 	appInsightsClient       appinsights.ComponentsClient
@@ -483,6 +484,10 @@ func (c *ArmClient) registerApiManagementServiceClients(endpoint, subscriptionId
 	ams := apimanagement.NewServiceClientWithBaseURI(endpoint, subscriptionId)
 	c.configureClient(&ams.Client, auth)
 	c.apiManagementServiceClient = ams
+
+	amg := apimanagement.NewGroupClientWithBaseURI(endpoint, subscriptionId)
+	c.configureClient(&amg.Client, auth)
+	c.apiManagementGroupClient = amg
 }
 
 func (c *ArmClient) registerAppInsightsClients(endpoint, subscriptionId string, auth autorest.Authorizer) {
