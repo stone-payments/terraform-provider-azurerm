@@ -176,7 +176,7 @@ func (client NamespacesClient) CreateOrUpdatePreparer(ctx context.Context, resou
 	}
 
 	queryParameters := map[string]interface{}{
-		"api-version": apiVersion,
+		"api-version": *apiVersion,
 	}
 
 	preparer := autorest.CreatePreparer(

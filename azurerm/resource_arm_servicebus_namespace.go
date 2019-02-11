@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/helpers/tf"
@@ -112,11 +113,11 @@ func resourceArmServiceBusNamespace() *schema.Resource {
 			}
 
 			//  Availability Zones are only supported when SKU is premium.
-			if _, ok := d.GetOk("zone_redundant"); ok {
+			if zoneRedundant, ok := d.GetOk("zone_redundant"); ok {
 				sku := d.Get("sku").(string)
-				zoneRedundant := d.Get("zone_redundant").(string)
+				zoneRedundant = zoneRedundant.(bool)
 				if !strings.EqualFold(sku, string(servicebus.Premium)) {
-					if strings.EqualFold(zoneRedundant, "true") {
+					if zoneRedundant == true {
 						return fmt.Errorf("`zone_redundant` can only be set as true for a Premium SKU")
 					}
 				}
@@ -158,7 +159,8 @@ func resourceArmServiceBusNamespaceCreateUpdate(d *schema.ResourceData, meta int
 			Name: servicebus.SkuName(sku),
 			Tier: servicebus.SkuTier(sku),
 		},
-		Tags: expandTags(tags),
+		Tags:                  expandTags(tags),
+		SBNamespaceProperties: &servicebus.SBNamespaceProperties{},
 	}
 
 	if capacity, ok := d.GetOk("capacity"); ok {
@@ -166,8 +168,8 @@ func resourceArmServiceBusNamespaceCreateUpdate(d *schema.ResourceData, meta int
 	}
 
 	var apiVersion *string
-	if _, ok := d.GetOk("zone_redundant"); ok {
-		zoneRedundant := d.Get("zone_redundant").(string)
+	if v, ok := d.GetOk("zone_redundant"); ok {
+		zoneRedundant := strconv.FormatBool(v.(bool))
 		parameters.SBNamespaceProperties.ZoneRedundant = &zoneRedundant
 		// Availability Zones are only supported in api-version "2018-01-01-preview" or above.
 		previewApiVersion := "2018-01-01-preview"
@@ -226,6 +228,13 @@ func resourceArmServiceBusNamespaceRead(d *schema.ResourceData, meta interface{}
 	if sku := resp.Sku; sku != nil {
 		d.Set("sku", strings.ToLower(string(sku.Name)))
 		d.Set("capacity", sku.Capacity)
+		if resp.SBNamespaceProperties.ZoneRedundant != nil {
+			zoneRedundant, err := strconv.ParseBool(*resp.SBNamespaceProperties.ZoneRedundant)
+			if err != nil {
+				return err
+			}
+			d.Set("zone_redundant", zoneRedundant)
+		}
 	}
 
 	keys, err := client.ListKeys(ctx, resourceGroup, name, serviceBusNamespaceDefaultAuthorizationRule)
