@@ -129,7 +129,7 @@ func (client NamespacesClient) CheckNameAvailabilityMethodResponder(resp *http.R
 // resourceGroupName - name of the Resource group within the Azure subscription.
 // namespaceName - the namespace name.
 // parameters - parameters supplied to create a namespace resource.
-func (client NamespacesClient) CreateOrUpdate(ctx context.Context, resourceGroupName string, namespaceName string, parameters SBNamespace) (result NamespacesCreateOrUpdateFuture, err error) {
+func (client NamespacesClient) CreateOrUpdate(ctx context.Context, resourceGroupName string, namespaceName string, parameters SBNamespace, apiVersion *string) (result NamespacesCreateOrUpdateFuture, err error) {
 	if tracing.IsEnabled() {
 		ctx = tracing.StartSpan(ctx, fqdn+"/NamespacesClient.CreateOrUpdate")
 		defer func() {
@@ -147,7 +147,7 @@ func (client NamespacesClient) CreateOrUpdate(ctx context.Context, resourceGroup
 		return result, validation.NewError("servicebus.NamespacesClient", "CreateOrUpdate", err.Error())
 	}
 
-	req, err := client.CreateOrUpdatePreparer(ctx, resourceGroupName, namespaceName, parameters)
+	req, err := client.CreateOrUpdatePreparer(ctx, resourceGroupName, namespaceName, parameters, apiVersion)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "servicebus.NamespacesClient", "CreateOrUpdate", nil, "Failure preparing request")
 		return
@@ -163,16 +163,20 @@ func (client NamespacesClient) CreateOrUpdate(ctx context.Context, resourceGroup
 }
 
 // CreateOrUpdatePreparer prepares the CreateOrUpdate request.
-func (client NamespacesClient) CreateOrUpdatePreparer(ctx context.Context, resourceGroupName string, namespaceName string, parameters SBNamespace) (*http.Request, error) {
+func (client NamespacesClient) CreateOrUpdatePreparer(ctx context.Context, resourceGroupName string, namespaceName string, parameters SBNamespace, apiVersion *string) (*http.Request, error) {
 	pathParameters := map[string]interface{}{
 		"namespaceName":     autorest.Encode("path", namespaceName),
 		"resourceGroupName": autorest.Encode("path", resourceGroupName),
 		"subscriptionId":    autorest.Encode("path", client.SubscriptionID),
 	}
 
-	const APIVersion = "2017-04-01"
+	if apiVersion == nil {
+		defaultApiVersion := "2017-04-01"
+		apiVersion = &defaultApiVersion
+	}
+
 	queryParameters := map[string]interface{}{
-		"api-version": APIVersion,
+		"api-version": apiVersion,
 	}
 
 	preparer := autorest.CreatePreparer(

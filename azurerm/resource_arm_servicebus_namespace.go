@@ -67,6 +67,12 @@ func resourceArmServiceBusNamespace() *schema.Resource {
 				ValidateFunc: validate.IntInSlice([]int{1, 2, 4}),
 			},
 
+			"zone_redundant": {
+				Type:     schema.TypeBool,
+				Optional: true,
+				ForceNew: true,
+			},
+
 			"default_primary_connection_string": {
 				Type:      schema.TypeString,
 				Computed:  true,
@@ -102,6 +108,17 @@ func resourceArmServiceBusNamespace() *schema.Resource {
 				sku := d.Get("sku").(string)
 				if !strings.EqualFold(sku, string(servicebus.Premium)) {
 					return fmt.Errorf("`capacity` can only be set for a Premium SKU")
+				}
+			}
+
+			//  Availability Zones are only supported when SKU is premium.
+			if _, ok := d.GetOk("zone_redundant"); ok {
+				sku := d.Get("sku").(string)
+				zoneRedundant := d.Get("zone_redundant").(string)
+				if !strings.EqualFold(sku, string(servicebus.Premium)) {
+					if strings.EqualFold(zoneRedundant, "true") {
+						return fmt.Errorf("`zone_redundant` can only be set as true for a Premium SKU")
+					}
 				}
 			}
 
@@ -148,7 +165,16 @@ func resourceArmServiceBusNamespaceCreateUpdate(d *schema.ResourceData, meta int
 		parameters.Sku.Capacity = utils.Int32(int32(capacity.(int)))
 	}
 
-	future, err := client.CreateOrUpdate(ctx, resourceGroup, name, parameters)
+	var apiVersion *string
+	if _, ok := d.GetOk("zone_redundant"); ok {
+		zoneRedundant := d.Get("zone_redundant").(string)
+		parameters.SBNamespaceProperties.ZoneRedundant = &zoneRedundant
+		// Availability Zones are only supported in api-version "2018-01-01-preview" or above.
+		previewApiVersion := "2018-01-01-preview"
+		apiVersion = &previewApiVersion
+	}
+
+	future, err := client.CreateOrUpdate(ctx, resourceGroup, name, parameters, apiVersion)
 	if err != nil {
 		return err
 	}

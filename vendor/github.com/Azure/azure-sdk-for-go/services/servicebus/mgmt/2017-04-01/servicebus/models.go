@@ -2364,7 +2364,7 @@ type SBNamespace struct {
 	// Sku - Porperties of Sku
 	Sku *SBSku `json:"sku,omitempty"`
 	// SBNamespaceProperties - Properties of the namespace.
-	*SBNamespaceProperties `json:"properties,omitempty"`
+	SBNamespaceProperties *SBNamespaceProperties `json:"properties,omitempty"`
 	// Location - The Geo-location where the resource lives
 	Location *string `json:"location,omitempty"`
 	// Tags - Resource tags
@@ -2646,6 +2646,8 @@ type SBNamespaceProperties struct {
 	ServiceBusEndpoint *string `json:"serviceBusEndpoint,omitempty"`
 	// MetricID - Identifier for Azure Insights metrics
 	MetricID *string `json:"metricId,omitempty"`
+	// ZoneRedundant - Whether use Availability Zones, providing fault-isolated locations within an Azure region.
+	ZoneRedundant *string `json:"zoneRedundant,omitempty"`
 }
 
 // SBNamespaceUpdateParameters description of a namespace resource.
@@ -2653,7 +2655,7 @@ type SBNamespaceUpdateParameters struct {
 	// Sku - Porperties of Sku
 	Sku *SBSku `json:"sku,omitempty"`
 	// SBNamespaceProperties - Properties of the namespace.
-	*SBNamespaceProperties `json:"properties,omitempty"`
+	SBNamespaceProperties *SBNamespaceProperties `json:"properties,omitempty"`
 	// Location - Resource location
 	Location *string `json:"location,omitempty"`
 	// Tags - Resource tags
