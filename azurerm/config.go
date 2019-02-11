@@ -304,6 +304,7 @@ type ArmClient struct {
 	serviceBusTopicsClient            servicebus.TopicsClient
 	serviceBusSubscriptionsClient     servicebus.SubscriptionsClient
 	serviceBusSubscriptionRulesClient servicebus.RulesClient
+	serviceBusGeoDRClient             servicebus.DisasterRecoveryConfigsClient
 
 	// Service Fabric
 	serviceFabricClustersClient servicefabric.ClustersClient
@@ -1131,6 +1132,10 @@ func (c *ArmClient) registerServiceBusClients(endpoint, subscriptionId string, a
 	subscriptionRulesClient := servicebus.NewRulesClientWithBaseURI(endpoint, subscriptionId)
 	c.configureClient(&subscriptionRulesClient.Client, auth)
 	c.serviceBusSubscriptionRulesClient = subscriptionRulesClient
+
+	geoDRClient := servicebus.NewDisasterRecoveryConfigsClientWithBaseURI(endpoint, subscriptionId)
+	c.configureClient(&geoDRClient.Client, auth)
+	c.serviceBusGeoDRClient = geoDRClient
 }
 
 func (c *ArmClient) registerServiceFabricClients(endpoint, subscriptionId string, auth autorest.Authorizer) {
