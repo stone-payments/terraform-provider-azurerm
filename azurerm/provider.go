@@ -314,6 +314,7 @@ func Provider() terraform.ResourceProvider {
 			"azurerm_service_fabric_cluster":                                                 resourceArmServiceFabricCluster(),
 			"azurerm_servicebus_namespace_authorization_rule":                                resourceArmServiceBusNamespaceAuthorizationRule(),
 			"azurerm_servicebus_namespace":                                                   resourceArmServiceBusNamespace(),
+			"azurerm_servicebus_disaster_recovery_config":                                    resourceArmServiceBusGeoDR(),
 			"azurerm_servicebus_queue_authorization_rule":                                    resourceArmServiceBusQueueAuthorizationRule(),
 			"azurerm_servicebus_queue":                                                       resourceArmServiceBusQueue(),
 			"azurerm_servicebus_subscription_rule":                                           resourceArmServiceBusSubscriptionRule(),
