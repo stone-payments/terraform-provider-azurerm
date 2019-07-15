@@ -31,44 +31,22 @@ func resourceArmAppService() *schema.Resource {
 				ValidateFunc: validateAppServiceName,
 			},
 
-			"identity": {
-				Type:     schema.TypeList,
-				Optional: true,
-				Computed: true,
-				MaxItems: 1,
-				Elem: &schema.Resource{
-					Schema: map[string]*schema.Schema{
-						"type": {
-							Type:             schema.TypeString,
-							Required:         true,
-							DiffSuppressFunc: ignoreCaseDiffSuppressFunc,
-							ValidateFunc: validation.StringInSlice([]string{
-								"SystemAssigned",
-							}, true),
-						},
-						"principal_id": {
-							Type:     schema.TypeString,
-							Computed: true,
-						},
-						"tenant_id": {
-							Type:     schema.TypeString,
-							Computed: true,
-						},
-					},
-				},
-			},
+			"identity": azure.SchemaAppServiceIdentity(),
 
-			"resource_group_name": resourceGroupNameSchema(),
+			"resource_group_name": azure.SchemaResourceGroupName(),
 
-			"location": locationSchema(),
+			"location": azure.SchemaLocation(),
 
 			"app_service_plan_id": {
 				Type:     schema.TypeString,
 				Required: true,
-				ForceNew: true,
 			},
 
 			"site_config": azure.SchemaAppServiceSiteConfig(),
+
+			"auth_settings": azure.SchemaAppServiceAuthSettings(),
+
+			"logs": azure.SchemaAppServiceLogsConfig(),
 
 			"client_affinity_enabled": {
 				Type:     schema.TypeBool,
@@ -98,6 +76,8 @@ func resourceArmAppService() *schema.Resource {
 				Optional: true,
 				Computed: true,
 			},
+
+			"storage_account": azure.SchemaAppServiceStorageAccounts(),
 
 			"connection_string": {
 				Type:     schema.TypeSet,
@@ -226,7 +206,7 @@ func resourceArmAppServiceCreate(d *schema.ResourceData, meta interface{}) error
 		return fmt.Errorf("The name %q used for the App Service needs to be globally unique and isn't available: %s", name, *available.Message)
 	}
 
-	location := azureRMNormalizeLocation(d.Get("location").(string))
+	location := azure.NormalizeLocation(d.Get("location").(string))
 	appServicePlanId := d.Get("app_service_plan_id").(string)
 	enabled := d.Get("enabled").(bool)
 	httpsOnly := d.Get("https_only").(bool)
@@ -246,7 +226,7 @@ func resourceArmAppServiceCreate(d *schema.ResourceData, meta interface{}) error
 	}
 
 	if _, ok := d.GetOk("identity"); ok {
-		appServiceIdentity := expandAzureRmAppServiceIdentity(d)
+		appServiceIdentity := azure.ExpandAppServiceIdentity(d)
 		siteEnvelope.Identity = appServiceIdentity
 	}
 
@@ -280,6 +260,27 @@ func resourceArmAppServiceCreate(d *schema.ResourceData, meta interface{}) error
 
 	d.SetId(*read.ID)
 
+	authSettingsRaw := d.Get("auth_settings").([]interface{})
+	authSettings := azure.ExpandAppServiceAuthSettings(authSettingsRaw)
+
+	auth := web.SiteAuthSettings{
+		ID:                         read.ID,
+		SiteAuthSettingsProperties: &authSettings}
+
+	if _, err := client.UpdateAuthSettings(ctx, resGroup, name, auth); err != nil {
+		return fmt.Errorf("Error updating auth settings for App Service %q (Resource Group %q): %+s", name, resGroup, err)
+	}
+
+	logsConfig := azure.ExpandAppServiceLogs(d.Get("logs"))
+
+	logs := web.SiteLogsConfig{
+		ID:                       read.ID,
+		SiteLogsConfigProperties: &logsConfig}
+
+	if _, err := client.UpdateDiagnosticLogsConfig(ctx, resGroup, name, logs); err != nil {
+		return fmt.Errorf("Error updating diagnostic logs config for App Service %q (Resource Group %q): %+s", name, resGroup, err)
+	}
+
 	return resourceArmAppServiceUpdate(d, meta)
 }
 
@@ -295,7 +296,7 @@ func resourceArmAppServiceUpdate(d *schema.ResourceData, meta interface{}) error
 	resGroup := id.ResourceGroup
 	name := id.Path["sites"]
 
-	location := azureRMNormalizeLocation(d.Get("location").(string))
+	location := azure.NormalizeLocation(d.Get("location").(string))
 	appServicePlanId := d.Get("app_service_plan_id").(string)
 	enabled := d.Get("enabled").(bool)
 	httpsOnly := d.Get("https_only").(bool)
@@ -339,6 +340,33 @@ func resourceArmAppServiceUpdate(d *schema.ResourceData, meta interface{}) error
 		}
 	}
 
+	if d.HasChange("auth_settings") {
+		authSettingsRaw := d.Get("auth_settings").([]interface{})
+		authSettingsProperties := azure.ExpandAppServiceAuthSettings(authSettingsRaw)
+		id := d.Id()
+		authSettings := web.SiteAuthSettings{
+			ID:                         &id,
+			SiteAuthSettingsProperties: &authSettingsProperties,
+		}
+
+		if _, err := client.UpdateAuthSettings(ctx, resGroup, name, authSettings); err != nil {
+			return fmt.Errorf("Error updating Authentication Settings for App Service %q: %+v", name, err)
+		}
+	}
+
+	if d.HasChange("logs") {
+		logs := azure.ExpandAppServiceLogs(d.Get("logs"))
+		id := d.Id()
+		logsResource := web.SiteLogsConfig{
+			ID:                       &id,
+			SiteLogsConfigProperties: &logs,
+		}
+
+		if _, err := client.UpdateDiagnosticLogsConfig(ctx, resGroup, name, logsResource); err != nil {
+			return fmt.Errorf("Error updating Diagnostics Logs for App Service %q: %+v", name, err)
+		}
+	}
+
 	if d.HasChange("client_affinity_enabled") {
 
 		affinity := d.Get("client_affinity_enabled").(bool)
@@ -367,6 +395,17 @@ func resourceArmAppServiceUpdate(d *schema.ResourceData, meta interface{}) error
 		}
 	}
 
+	if d.HasChange("storage_account") {
+		storageAccounts := azure.ExpandAppServiceStorageAccounts(d)
+		properties := web.AzureStoragePropertyDictionaryResource{
+			Properties: storageAccounts,
+		}
+
+		if _, err := client.UpdateAzureStorageAccounts(ctx, resGroup, name, properties); err != nil {
+			return fmt.Errorf("Error updating Storage Accounts for App Service %q: %+v", name, err)
+		}
+	}
+
 	if d.HasChange("connection_string") {
 		// update the ConnectionStrings
 		connectionStrings := expandAppServiceConnectionStrings(d)
@@ -385,7 +424,7 @@ func resourceArmAppServiceUpdate(d *schema.ResourceData, meta interface{}) error
 			return fmt.Errorf("Error getting configuration for App Service %q: %+v", name, err)
 		}
 
-		appServiceIdentity := expandAzureRmAppServiceIdentity(d)
+		appServiceIdentity := azure.ExpandAppServiceIdentity(d)
 		site.Identity = appServiceIdentity
 
 		future, err := client.CreateOrUpdate(ctx, resGroup, name, site)
@@ -426,12 +465,37 @@ func resourceArmAppServiceRead(d *schema.ResourceData, meta interface{}) error {
 
 	configResp, err := client.GetConfiguration(ctx, resGroup, name)
 	if err != nil {
+		if utils.ResponseWasNotFound(configResp.Response) {
+			log.Printf("[DEBUG] Configuration of App Service %q (resource group %q) was not found", name, resGroup)
+			d.SetId("")
+			return nil
+		}
 		return fmt.Errorf("Error making Read request on AzureRM App Service Configuration %q: %+v", name, err)
+	}
+
+	authResp, err := client.GetAuthSettings(ctx, resGroup, name)
+	if err != nil {
+		return fmt.Errorf("Error retrieving the AuthSettings for App Service %q (Resource Group %q): %+v", name, resGroup, err)
+	}
+
+	logsResp, err := client.GetDiagnosticLogsConfiguration(ctx, resGroup, name)
+	if err != nil {
+		return fmt.Errorf("Error retrieving the DiagnosticsLogsConfiguration for App Service %q (Resource Group %q): %+v", name, resGroup, err)
 	}
 
 	appSettingsResp, err := client.ListApplicationSettings(ctx, resGroup, name)
 	if err != nil {
+		if utils.ResponseWasNotFound(appSettingsResp.Response) {
+			log.Printf("[DEBUG] Application Settings of App Service %q (resource group %q) were not found", name, resGroup)
+			d.SetId("")
+			return nil
+		}
 		return fmt.Errorf("Error making Read request on AzureRM App Service AppSettings %q: %+v", name, err)
+	}
+
+	storageAccountsResp, err := client.ListAzureStorageAccounts(ctx, resGroup, name)
+	if err != nil {
+		return fmt.Errorf("Error making Read request on AzureRM App Service Storage Accounts %q: %+v", name, err)
 	}
 
 	connectionStringsResp, err := client.ListConnectionStrings(ctx, resGroup, name)
@@ -460,7 +524,7 @@ func resourceArmAppServiceRead(d *schema.ResourceData, meta interface{}) error {
 	d.Set("name", name)
 	d.Set("resource_group_name", resGroup)
 	if location := resp.Location; location != nil {
-		d.Set("location", azureRMNormalizeLocation(*location))
+		d.Set("location", azure.NormalizeLocation(*location))
 	}
 
 	if props := resp.SiteProperties; props != nil {
@@ -474,7 +538,17 @@ func resourceArmAppServiceRead(d *schema.ResourceData, meta interface{}) error {
 		d.Set("possible_outbound_ip_addresses", props.PossibleOutboundIPAddresses)
 	}
 
-	if err := d.Set("app_settings", flattenAppServiceAppSettings(appSettingsResp.Properties)); err != nil {
+	appSettings := flattenAppServiceAppSettings(appSettingsResp.Properties)
+
+	// remove DIAGNOSTICS* settings - Azure will sync these, so just maintain the logs block equivalents in the state
+	delete(appSettings, "DIAGNOSTICS_AZUREBLOBCONTAINERSASURL")
+	delete(appSettings, "DIAGNOSTICS_AZUREBLOBRETENTIONINDAYS")
+
+	if err := d.Set("app_settings", appSettings); err != nil {
+		return err
+	}
+
+	if err := d.Set("storage_account", azure.FlattenAppServiceStorageAccounts(storageAccountsResp.Properties)); err != nil {
 		return err
 	}
 
@@ -487,6 +561,16 @@ func resourceArmAppServiceRead(d *schema.ResourceData, meta interface{}) error {
 		return err
 	}
 
+	authSettings := azure.FlattenAppServiceAuthSettings(authResp.SiteAuthSettingsProperties)
+	if err := d.Set("auth_settings", authSettings); err != nil {
+		return fmt.Errorf("Error setting `auth_settings`: %s", err)
+	}
+
+	logs := azure.FlattenAppServiceLogs(logsResp.SiteLogsConfigProperties)
+	if err := d.Set("logs", logs); err != nil {
+		return fmt.Errorf("Error setting `logs`: %s", err)
+	}
+
 	scm := flattenAppServiceSourceControl(scmResp.SiteSourceControlProperties)
 	if err := d.Set("source_control", scm); err != nil {
 		return err
@@ -497,7 +581,7 @@ func resourceArmAppServiceRead(d *schema.ResourceData, meta interface{}) error {
 		return err
 	}
 
-	identity := flattenAzureRmAppServiceMachineIdentity(resp.Identity)
+	identity := azure.FlattenAppServiceIdentity(resp.Identity)
 	if err := d.Set("identity", identity); err != nil {
 		return err
 	}
@@ -607,33 +691,6 @@ func flattenAppServiceAppSettings(input map[string]*string) map[string]string {
 	}
 
 	return output
-}
-
-func expandAzureRmAppServiceIdentity(d *schema.ResourceData) *web.ManagedServiceIdentity {
-	identities := d.Get("identity").([]interface{})
-	identity := identities[0].(map[string]interface{})
-	identityType := identity["type"].(string)
-	return &web.ManagedServiceIdentity{
-		Type: web.ManagedServiceIdentityType(identityType),
-	}
-}
-
-func flattenAzureRmAppServiceMachineIdentity(identity *web.ManagedServiceIdentity) []interface{} {
-	if identity == nil {
-		return make([]interface{}, 0)
-	}
-
-	result := make(map[string]interface{})
-	result["type"] = string(identity.Type)
-
-	if identity.PrincipalID != nil {
-		result["principal_id"] = *identity.PrincipalID
-	}
-	if identity.TenantID != nil {
-		result["tenant_id"] = *identity.TenantID
-	}
-
-	return []interface{}{result}
 }
 
 func validateAppServiceName(v interface{}, k string) (warnings []string, errors []error) {

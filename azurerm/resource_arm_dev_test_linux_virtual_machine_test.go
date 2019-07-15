@@ -185,7 +185,7 @@ func testCheckAzureRMDevTestLinuxVirtualMachineExists(resourceName string) resou
 		labName := rs.Primary.Attributes["lab_name"]
 		resourceGroup := rs.Primary.Attributes["resource_group_name"]
 
-		conn := testAccProvider.Meta().(*ArmClient).devTestVirtualMachinesClient
+		conn := testAccProvider.Meta().(*ArmClient).devTestLabs.VirtualMachinesClient
 		ctx := testAccProvider.Meta().(*ArmClient).StopContext
 
 		resp, err := conn.Get(ctx, resourceGroup, labName, virtualMachineName, "")
@@ -202,7 +202,7 @@ func testCheckAzureRMDevTestLinuxVirtualMachineExists(resourceName string) resou
 }
 
 func testCheckAzureRMDevTestLinuxVirtualMachineDestroy(s *terraform.State) error {
-	conn := testAccProvider.Meta().(*ArmClient).devTestVirtualMachinesClient
+	conn := testAccProvider.Meta().(*ArmClient).devTestLabs.VirtualMachinesClient
 	ctx := testAccProvider.Meta().(*ArmClient).StopContext
 
 	for _, rs := range s.RootModule().Resources {
@@ -346,7 +346,7 @@ resource "azurerm_dev_test_linux_virtual_machine" "test" {
     backend_port = 3389
   }
 
-  tags {
+  tags = {
     "Acceptance" = "Test"
   }
 }

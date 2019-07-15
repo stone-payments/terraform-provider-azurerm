@@ -31,8 +31,9 @@ func resourceArmKeyVaultChildResourceImporter(d *schema.ResourceData, meta inter
 
 	kvid, err := azure.GetKeyVaultIDFromBaseUrl(ctx, client, id.KeyVaultBaseUrl)
 	if err != nil {
-		return []*schema.ResourceData{d}, fmt.Errorf("Error unable to find key vault ID from URL %q for certificate %q: %+v", id.KeyVaultBaseUrl, id.Name, err)
+		return []*schema.ResourceData{d}, fmt.Errorf("Error retrieving the Resource ID the Key Vault at URL %q: %s", id.KeyVaultBaseUrl, err)
 	}
+
 	d.Set("key_vault_id", kvid)
 
 	return []*schema.ResourceData{d}, nil
@@ -85,14 +86,16 @@ func resourceArmKeyVaultCertificate() *schema.Resource {
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"contents": {
-							Type:     schema.TypeString,
-							Required: true,
-							ForceNew: true,
+							Type:      schema.TypeString,
+							Required:  true,
+							ForceNew:  true,
+							Sensitive: true,
 						},
 						"password": {
-							Type:     schema.TypeString,
-							Optional: true,
-							ForceNew: true,
+							Type:      schema.TypeString,
+							Optional:  true,
+							ForceNew:  true,
+							Sensitive: true,
 						},
 					},
 				},
@@ -435,21 +438,31 @@ func keyVaultCertificateCreationRefreshFunc(ctx context.Context, client keyvault
 }
 
 func resourceArmKeyVaultCertificateRead(d *schema.ResourceData, meta interface{}) error {
+	keyVaultClient := meta.(*ArmClient).keyVaultClient
 	client := meta.(*ArmClient).keyVaultManagementClient
 	ctx := meta.(*ArmClient).StopContext
 
-	keyVaultId := d.Get("key_vault_id").(string)
 	id, err := azure.ParseKeyVaultChildID(d.Id())
 	if err != nil {
 		return err
 	}
 
-	ok, err := azure.KeyVaultExists(ctx, meta.(*ArmClient).keyVaultClient, keyVaultId)
+	keyVaultId, err := azure.GetKeyVaultIDFromBaseUrl(ctx, keyVaultClient, id.KeyVaultBaseUrl)
 	if err != nil {
-		return fmt.Errorf("Error checking if key vault %q for Certificate %q in Vault at url %q exists: %v", keyVaultId, id.Name, id.KeyVaultBaseUrl, err)
+		return fmt.Errorf("Error retrieving the Resource ID the Key Vault at URL %q: %s", id.KeyVaultBaseUrl, err)
+	}
+	if keyVaultId == nil {
+		log.Printf("[DEBUG] Unable to determine the Resource ID for the Key Vault at URL %q - removing from state!", id.KeyVaultBaseUrl)
+		d.SetId("")
+		return nil
+	}
+
+	ok, err := azure.KeyVaultExists(ctx, keyVaultClient, *keyVaultId)
+	if err != nil {
+		return fmt.Errorf("Error checking if key vault %q for Certificate %q in Vault at url %q exists: %v", *keyVaultId, id.Name, id.KeyVaultBaseUrl, err)
 	}
 	if !ok {
-		log.Printf("[DEBUG] Certificate %q Key Vault %q was not found in Key Vault at URI %q - removing from state", id.Name, keyVaultId, id.KeyVaultBaseUrl)
+		log.Printf("[DEBUG] Certificate %q Key Vault %q was not found in Key Vault at URI %q - removing from state", id.Name, *keyVaultId, id.KeyVaultBaseUrl)
 		d.SetId("")
 		return nil
 	}
@@ -495,21 +508,29 @@ func resourceArmKeyVaultCertificateRead(d *schema.ResourceData, meta interface{}
 }
 
 func resourceArmKeyVaultCertificateDelete(d *schema.ResourceData, meta interface{}) error {
+	keyVaultClient := meta.(*ArmClient).keyVaultClient
 	client := meta.(*ArmClient).keyVaultManagementClient
 	ctx := meta.(*ArmClient).StopContext
 
-	keyVaultId := d.Get("key_vault_id").(string)
 	id, err := azure.ParseKeyVaultChildID(d.Id())
 	if err != nil {
 		return err
 	}
 
-	ok, err := azure.KeyVaultExists(ctx, meta.(*ArmClient).keyVaultClient, keyVaultId)
+	keyVaultId, err := azure.GetKeyVaultIDFromBaseUrl(ctx, keyVaultClient, id.KeyVaultBaseUrl)
 	if err != nil {
-		return fmt.Errorf("Error checking if key vault %q for Certificate %q in Vault at url %q exists: %v", keyVaultId, id.Name, id.KeyVaultBaseUrl, err)
+		return fmt.Errorf("Error retrieving the Resource ID the Key Vault at URL %q: %s", id.KeyVaultBaseUrl, err)
+	}
+	if keyVaultId == nil {
+		return fmt.Errorf("Unable to determine the Resource ID for the Key Vault at URL %q", id.KeyVaultBaseUrl)
+	}
+
+	ok, err := azure.KeyVaultExists(ctx, keyVaultClient, *keyVaultId)
+	if err != nil {
+		return fmt.Errorf("Error checking if key vault %q for Certificate %q in Vault at url %q exists: %v", *keyVaultId, id.Name, id.KeyVaultBaseUrl, err)
 	}
 	if !ok {
-		log.Printf("[DEBUG] Certificate %q Key Vault %q was not found in Key Vault at URI %q - removing from state", id.Name, keyVaultId, id.KeyVaultBaseUrl)
+		log.Printf("[DEBUG] Certificate %q Key Vault %q was not found in Key Vault at URI %q - removing from state", id.Name, *keyVaultId, id.KeyVaultBaseUrl)
 		d.SetId("")
 		return nil
 	}
@@ -591,7 +612,7 @@ func expandKeyVaultCertificatePolicy(d *schema.ResourceData) keyvault.Certificat
 		cert := v.(map[string]interface{})
 
 		ekus := cert["extended_key_usage"].([]interface{})
-		extendedKeyUsage := utils.ExpandStringArray(ekus)
+		extendedKeyUsage := utils.ExpandStringSlice(ekus)
 
 		keyUsage := make([]keyvault.KeyUsageType, 0)
 		keys := cert["key_usage"].([]interface{})
@@ -608,17 +629,17 @@ func expandKeyVaultCertificatePolicy(d *schema.ResourceData) keyvault.Certificat
 
 					emails := san["emails"].([]interface{})
 					if len(emails) > 0 {
-						subjectAlternativeNames.Emails = utils.ExpandStringArray(emails)
+						subjectAlternativeNames.Emails = utils.ExpandStringSlice(emails)
 					}
 
 					dnsNames := san["dns_names"].([]interface{})
 					if len(dnsNames) > 0 {
-						subjectAlternativeNames.DNSNames = utils.ExpandStringArray(dnsNames)
+						subjectAlternativeNames.DNSNames = utils.ExpandStringSlice(dnsNames)
 					}
 
 					upns := san["upns"].([]interface{})
 					if len(upns) > 0 {
-						subjectAlternativeNames.Upns = utils.ExpandStringArray(upns)
+						subjectAlternativeNames.Upns = utils.ExpandStringSlice(upns)
 					}
 				}
 			}
@@ -705,9 +726,9 @@ func flattenKeyVaultCertificatePolicy(input *keyvault.CertificatePolicy) []inter
 		if san := props.SubjectAlternativeNames; san != nil {
 			sanOutput := make(map[string]interface{})
 
-			sanOutput["emails"] = utils.FlattenStringArray(san.Emails)
-			sanOutput["dns_names"] = utils.FlattenStringArray(san.DNSNames)
-			sanOutput["upns"] = utils.FlattenStringArray(san.Upns)
+			sanOutput["emails"] = utils.FlattenStringSlice(san.Emails)
+			sanOutput["dns_names"] = utils.FlattenStringSlice(san.DNSNames)
+			sanOutput["upns"] = utils.FlattenStringSlice(san.Upns)
 
 			sanOutputs = append(sanOutputs, sanOutput)
 		}

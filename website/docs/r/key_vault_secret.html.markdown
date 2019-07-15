@@ -38,9 +38,7 @@ resource "azurerm_key_vault" "test" {
   resource_group_name = "${azurerm_resource_group.test.name}"
   tenant_id           = "${data.azurerm_client_config.current.tenant_id}"
 
-  sku {
-    name = "premium"
-  }
+  sku_name = "premium"
 
   access_policy {
     tenant_id = "${data.azurerm_client_config.current.tenant_id}"
@@ -58,17 +56,17 @@ resource "azurerm_key_vault" "test" {
     ]
   }
 
-  tags {
+  tags = {
     environment = "Production"
   }
 }
 
 resource "azurerm_key_vault_secret" "test" {
-  name     = "secret-sauce"
-  value    = "szechuan"
+  name         = "secret-sauce"
+  value        = "szechuan"
   key_vault_id = "${azurerm_key_vault.test.id}"
 
-  tags {
+  tags = {
     environment = "Production"
   }
 }

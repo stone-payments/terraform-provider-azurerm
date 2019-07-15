@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-08-01/network"
+	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-12-01/network"
 	"github.com/hashicorp/terraform/helper/schema"
 	"github.com/hashicorp/terraform/helper/validation"
 	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/helpers/azure"
@@ -32,9 +32,9 @@ func resourceArmLoadBalancer() *schema.Resource {
 				ForceNew: true,
 			},
 
-			"location": locationSchema(),
+			"location": azure.SchemaLocation(),
 
-			"resource_group_name": resourceGroupNameSchema(),
+			"resource_group_name": azure.SchemaResourceGroupName(),
 
 			"sku": {
 				Type:     schema.TypeString,
@@ -81,6 +81,13 @@ func resourceArmLoadBalancer() *schema.Resource {
 							ValidateFunc: azure.ValidateResourceIDOrEmpty,
 						},
 
+						"public_ip_prefix_id": {
+							Type:         schema.TypeString,
+							Optional:     true,
+							Computed:     true,
+							ValidateFunc: azure.ValidateResourceIDOrEmpty,
+						},
+
 						"private_ip_address_allocation": {
 							Type:     schema.TypeString,
 							Optional: true,
@@ -113,7 +120,17 @@ func resourceArmLoadBalancer() *schema.Resource {
 							Set: schema.HashString,
 						},
 
-						"zones": singleZonesSchema(),
+						"outbound_rules": {
+							Type:     schema.TypeSet,
+							Computed: true,
+							Elem: &schema.Schema{
+								Type:         schema.TypeString,
+								ValidateFunc: validate.NoEmptyStrings,
+							},
+							Set: schema.HashString,
+						},
+
+						"zones": azure.SchemaSingleZone(),
 					},
 				},
 			},
@@ -157,7 +174,7 @@ func resourceArmLoadBalancerCreateUpdate(d *schema.ResourceData, meta interface{
 		}
 	}
 
-	location := azureRMNormalizeLocation(d.Get("location").(string))
+	location := azure.NormalizeLocation(d.Get("location").(string))
 	sku := network.LoadBalancerSku{
 		Name: network.LoadBalancerSkuName(d.Get("sku").(string)),
 	}
@@ -219,7 +236,7 @@ func resourceArmLoadBalancerRead(d *schema.ResourceData, meta interface{}) error
 	d.Set("name", loadBalancer.Name)
 	d.Set("resource_group_name", id.ResourceGroup)
 	if location := loadBalancer.Location; location != nil {
-		d.Set("location", azureRMNormalizeLocation(*location))
+		d.Set("location", azure.NormalizeLocation(*location))
 	}
 
 	if sku := loadBalancer.Sku; sku != nil {
@@ -301,6 +318,12 @@ func expandAzureRmLoadBalancerFrontendIpConfigurations(d *schema.ResourceData) *
 			}
 		}
 
+		if v := data["public_ip_prefix_id"].(string); v != "" {
+			properties.PublicIPPrefix = &network.SubResource{
+				ID: &v,
+			}
+		}
+
 		if v := data["subnet_id"].(string); v != "" {
 			properties.Subnet = &network.Subnet{
 				ID: &v,
@@ -308,7 +331,7 @@ func expandAzureRmLoadBalancerFrontendIpConfigurations(d *schema.ResourceData) *
 		}
 
 		name := data["name"].(string)
-		zones := expandZones(data["zones"].([]interface{}))
+		zones := azure.ExpandZones(data["zones"].([]interface{}))
 		frontEndConfig := network.FrontendIPConfiguration{
 			Name:                                    &name,
 			FrontendIPConfigurationPropertiesFormat: &properties,
@@ -355,6 +378,10 @@ func flattenLoadBalancerFrontendIpConfiguration(ipConfigs *[]network.FrontendIPC
 				ipConfig["public_ip_address_id"] = *pip.ID
 			}
 
+			if pip := props.PublicIPPrefix; pip != nil {
+				ipConfig["public_ip_prefix_id"] = *pip.ID
+			}
+
 			loadBalancingRules := make([]interface{}, 0)
 			if rules := props.LoadBalancingRules; rules != nil {
 				for _, rule := range *rules {
@@ -371,6 +398,15 @@ func flattenLoadBalancerFrontendIpConfiguration(ipConfigs *[]network.FrontendIPC
 
 			}
 			ipConfig["inbound_nat_rules"] = schema.NewSet(schema.HashString, inboundNatRules)
+
+			outboundRules := make([]interface{}, 0)
+			if rules := props.OutboundRules; rules != nil {
+				for _, rule := range *rules {
+					outboundRules = append(outboundRules, *rule.ID)
+				}
+
+			}
+			ipConfig["outbound_rules"] = schema.NewSet(schema.HashString, outboundRules)
 		}
 
 		result = append(result, ipConfig)

@@ -40,6 +40,33 @@ func TestAccAzureRMKeyVaultCertificate_basicImportPFX(t *testing.T) {
 	})
 }
 
+func TestAccAzureRMKeyVaultCertificate_basicImportPFXClassic(t *testing.T) {
+	resourceName := "azurerm_key_vault_certificate.test"
+	rs := acctest.RandString(6)
+	config := testAccAzureRMKeyVaultCertificate_basicImportPFXClassic(rs, testLocation())
+
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t) },
+		Providers:    testAccProviders,
+		CheckDestroy: testCheckAzureRMKeyVaultCertificateDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: config,
+				Check: resource.ComposeTestCheckFunc(
+					testCheckAzureRMKeyVaultCertificateExists(resourceName),
+					resource.TestCheckResourceAttrSet(resourceName, "certificate_data"),
+				),
+			},
+			{
+				ResourceName:            resourceName,
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"certificate"},
+			},
+		},
+	})
+}
+
 func TestAccAzureRMKeyVaultCertificate_requiresImport(t *testing.T) {
 	if !requireResourcesToBeImported {
 		t.Skip("Skipping since resources aren't required to be imported")
@@ -342,9 +369,7 @@ resource "azurerm_key_vault" "test" {
   resource_group_name = "${azurerm_resource_group.test.name}"
   tenant_id           = "${data.azurerm_client_config.current.tenant_id}"
 
-  sku {
-    name = "standard"
-  }
+  sku_name = "standard"
 
   access_policy {
     tenant_id = "${data.azurerm_client_config.current.tenant_id}"
@@ -367,11 +392,81 @@ resource "azurerm_key_vault" "test" {
 }
 
 resource "azurerm_key_vault_certificate" "test" {
-  name     = "acctestcert%s"
+  name         = "acctestcert%s"
   key_vault_id = "${azurerm_key_vault.test.id}"
 
   certificate {
-    contents = "${base64encode(file("testdata/keyvaultcert.pfx"))}"
+    contents = "${filebase64("testdata/keyvaultcert.pfx")}"
+    password = ""
+  }
+
+  certificate_policy {
+    issuer_parameters {
+      name = "Self"
+    }
+
+    key_properties {
+      exportable = true
+      key_size   = 2048
+      key_type   = "RSA"
+      reuse_key  = false
+    }
+
+    secret_properties {
+      content_type = "application/x-pkcs12"
+    }
+  }
+}
+`, rString, location, rString, rString)
+}
+
+func testAccAzureRMKeyVaultCertificate_basicImportPFXClassic(rString string, location string) string {
+	return fmt.Sprintf(`
+data "azurerm_client_config" "current" {}
+
+resource "azurerm_resource_group" "test" {
+  name     = "acctestRG-%s"
+  location = "%s"
+}
+
+resource "azurerm_key_vault" "test" {
+  name                = "acctestkeyvault%s"
+  location            = "${azurerm_resource_group.test.location}"
+  resource_group_name = "${azurerm_resource_group.test.name}"
+  tenant_id           = "${data.azurerm_client_config.current.tenant_id}"
+
+  sku_name = "standard"
+
+  access_policy {
+    tenant_id = "${data.azurerm_client_config.current.tenant_id}"
+    object_id = "${data.azurerm_client_config.current.service_principal_object_id}"
+
+    certificate_permissions = [
+      "delete",
+      "import",
+      "get",
+    ]
+
+    key_permissions = [
+      "create",
+    ]
+
+    secret_permissions = [
+      "set",
+    ]
+
+    storage_permissions = [
+      "set",
+    ]
+  }
+}
+
+resource "azurerm_key_vault_certificate" "test" {
+  name      = "acctestcert%s"
+  vault_uri = "${azurerm_key_vault.test.vault_uri}"
+
+  certificate {
+    contents = "${filebase64("testdata/keyvaultcert.pfx")}"
     password = ""
   }
 
@@ -405,7 +500,7 @@ resource "azurerm_key_vault_certificate" "import" {
   key_vault_id = "${azurerm_key_vault.test.id}"
 
   certificate {
-    contents = "${base64encode(file("testdata/keyvaultcert.pfx"))}"
+    contents = "${filebase64("testdata/keyvaultcert.pfx")}"
     password = ""
   }
 
@@ -443,9 +538,7 @@ resource "azurerm_key_vault" "test" {
   resource_group_name = "${azurerm_resource_group.test.name}"
   tenant_id           = "${data.azurerm_client_config.current.tenant_id}"
 
-  sku {
-    name = "standard"
-  }
+  sku_name = "standard"
 
   access_policy {
     tenant_id = "${data.azurerm_client_config.current.tenant_id}"
@@ -465,12 +558,16 @@ resource "azurerm_key_vault" "test" {
     secret_permissions = [
       "set",
     ]
+
+    storage_permissions = [
+      "set",
+    ]
   }
 }
 
 resource "azurerm_key_vault_certificate" "test" {
-  name      = "acctestcert%s"
-  key_vault_id  = "${azurerm_key_vault.test.id}"
+  name         = "acctestcert%s"
+  key_vault_id = "${azurerm_key_vault.test.id}"
 
   certificate_policy {
     issuer_parameters {
@@ -531,9 +628,7 @@ resource "azurerm_key_vault" "test" {
   resource_group_name = "${azurerm_resource_group.test.name}"
   tenant_id           = "${data.azurerm_client_config.current.tenant_id}"
 
-  sku {
-    name = "standard"
-  }
+  sku_name = "standard"
 
   access_policy {
     tenant_id = "${data.azurerm_client_config.current.tenant_id}"
@@ -553,11 +648,15 @@ resource "azurerm_key_vault" "test" {
     secret_permissions = [
       "set",
     ]
+
+    storage_permissions = [
+      "set",
+    ]
   }
 }
 
 resource "azurerm_key_vault_certificate" "test" {
-  name     = "acctestcert%s"
+  name         = "acctestcert%s"
   key_vault_id = "${azurerm_key_vault.test.id}"
 
   certificate_policy {
@@ -626,9 +725,7 @@ resource "azurerm_key_vault" "test" {
   resource_group_name = "${azurerm_resource_group.test.name}"
   tenant_id           = "${data.azurerm_client_config.current.tenant_id}"
 
-  sku {
-    name = "standard"
-  }
+  sku_name = "standard"
 
   access_policy {
     tenant_id = "${data.azurerm_client_config.current.tenant_id}"
@@ -652,7 +749,7 @@ resource "azurerm_key_vault" "test" {
 }
 
 resource "azurerm_key_vault_certificate" "test" {
-  name     = "acctestcert%s"
+  name         = "acctestcert%s"
   key_vault_id = "${azurerm_key_vault.test.id}"
 
   certificate_policy {
@@ -696,7 +793,7 @@ resource "azurerm_key_vault_certificate" "test" {
     }
   }
 
-  tags {
+  tags = {
     "hello" = "world"
   }
 }
@@ -718,9 +815,7 @@ resource "azurerm_key_vault" "test" {
   resource_group_name = "${azurerm_resource_group.test.name}"
   tenant_id           = "${data.azurerm_client_config.current.tenant_id}"
 
-  sku {
-    name = "standard"
-  }
+  sku_name = "standard"
 
   access_policy {
     tenant_id = "${data.azurerm_client_config.current.tenant_id}"
@@ -738,6 +833,10 @@ resource "azurerm_key_vault" "test" {
     ]
 
     secret_permissions = [
+      "set",
+    ]
+
+    storage_permissions = [
       "set",
     ]
   }

@@ -106,7 +106,7 @@ func testCheckAzureRMDevTestPolicyExists(resourceName string) resource.TestCheck
 		labName := rs.Primary.Attributes["lab_name"]
 		resourceGroup := rs.Primary.Attributes["resource_group_name"]
 
-		conn := testAccProvider.Meta().(*ArmClient).devTestPoliciesClient
+		conn := testAccProvider.Meta().(*ArmClient).devTestLabs.PoliciesClient
 		ctx := testAccProvider.Meta().(*ArmClient).StopContext
 
 		resp, err := conn.Get(ctx, resourceGroup, labName, policySetName, policyName, "")
@@ -123,7 +123,7 @@ func testCheckAzureRMDevTestPolicyExists(resourceName string) resource.TestCheck
 }
 
 func testCheckAzureRMDevTestPolicyDestroy(s *terraform.State) error {
-	conn := testAccProvider.Meta().(*ArmClient).devTestPoliciesClient
+	conn := testAccProvider.Meta().(*ArmClient).devTestLabs.PoliciesClient
 	ctx := testAccProvider.Meta().(*ArmClient).StopContext
 
 	for _, rs := range s.RootModule().Resources {
@@ -214,7 +214,7 @@ resource "azurerm_dev_test_policy" "test" {
   evaluator_type      = "MaxValuePolicy"
   description         = "Aloha this is the max number of VM's'"
 
-  tags {
+  tags = {
     "Acceptance" = "Test"
   }
 }

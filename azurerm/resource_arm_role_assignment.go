@@ -50,12 +50,13 @@ func resourceArmRoleAssignment() *schema.Resource {
 			},
 
 			"role_definition_name": {
-				Type:          schema.TypeString,
-				Optional:      true,
-				Computed:      true,
-				ForceNew:      true,
-				ConflictsWith: []string{"role_definition_id"},
-				ValidateFunc:  validateRoleDefinitionName,
+				Type:             schema.TypeString,
+				Optional:         true,
+				Computed:         true,
+				ForceNew:         true,
+				ConflictsWith:    []string{"role_definition_id"},
+				DiffSuppressFunc: suppress.CaseDifference,
+				ValidateFunc:     validateRoleDefinitionName,
 			},
 
 			"principal_id": {
@@ -80,7 +81,7 @@ func resourceArmRoleAssignmentCreate(d *schema.ResourceData, meta interface{}) e
 		roleDefinitionId = v.(string)
 	} else if v, ok := d.GetOk("role_definition_name"); ok {
 		roleName := v.(string)
-		roleDefinitions, err := roleDefinitionsClient.List(ctx, "", fmt.Sprintf("roleName eq '%s'", roleName))
+		roleDefinitions, err := roleDefinitionsClient.List(ctx, scope, fmt.Sprintf("roleName eq '%s'", roleName))
 		if err != nil {
 			return fmt.Errorf("Error loading Role Definition List: %+v", err)
 		}
@@ -108,7 +109,7 @@ func resourceArmRoleAssignmentCreate(d *schema.ResourceData, meta interface{}) e
 		existing, err := roleAssignmentsClient.Get(ctx, scope, name)
 		if err != nil {
 			if !utils.ResponseWasNotFound(existing.Response) {
-				return fmt.Errorf("Error checking for presence of existing Role Assignment ID for %q (Scope %q)", name, scope)
+				return fmt.Errorf("Error checking for presence of existing Role Assignment ID for %q (Scope %q): %+v", name, scope, err)
 			}
 		}
 
@@ -170,7 +171,7 @@ func resourceArmRoleAssignmentRead(d *schema.ResourceData, meta interface{}) err
 				return fmt.Errorf("Error loading Role Definition %q: %+v", *roleId, err)
 			}
 
-			if roleProps := roleResp.RoleDefinitionProperties; props != nil {
+			if roleProps := roleResp.RoleDefinitionProperties; roleProps != nil {
 				d.Set("role_definition_name", roleProps.RoleName)
 			}
 		}

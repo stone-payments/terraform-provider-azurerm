@@ -14,7 +14,6 @@ import (
 func TestAccAzureRMVirtualNetwork_basic(t *testing.T) {
 	resourceName := "azurerm_virtual_network.test"
 	ri := tf.AccRandTimeInt()
-	config := testAccAzureRMVirtualNetwork_basic(ri, testLocation())
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
@@ -22,10 +21,44 @@ func TestAccAzureRMVirtualNetwork_basic(t *testing.T) {
 		CheckDestroy: testCheckAzureRMVirtualNetworkDestroy,
 		Steps: []resource.TestStep{
 			{
-				Config: config,
+				Config: testAccAzureRMVirtualNetwork_basic(ri, testLocation()),
 				Check: resource.ComposeTestCheckFunc(
 					testCheckAzureRMVirtualNetworkExists(resourceName),
 					resource.TestCheckResourceAttr(resourceName, "subnet.#", "1"),
+					resource.TestCheckResourceAttrSet(resourceName, "subnet.1472110187.id"),
+				),
+			},
+			{
+				ResourceName:      resourceName,
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
+		},
+	})
+}
+
+func TestAccAzureRMVirtualNetwork_basicUpdated(t *testing.T) {
+	resourceName := "azurerm_virtual_network.test"
+	ri := tf.AccRandTimeInt()
+
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t) },
+		Providers:    testAccProviders,
+		CheckDestroy: testCheckAzureRMVirtualNetworkDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccAzureRMVirtualNetwork_basic(ri, testLocation()),
+				Check: resource.ComposeTestCheckFunc(
+					testCheckAzureRMVirtualNetworkExists(resourceName),
+					resource.TestCheckResourceAttr(resourceName, "subnet.#", "1"),
+					resource.TestCheckResourceAttrSet(resourceName, "subnet.1472110187.id"),
+				),
+			},
+			{
+				Config: testAccAzureRMVirtualNetwork_basicUpdated(ri, testLocation()),
+				Check: resource.ComposeTestCheckFunc(
+					testCheckAzureRMVirtualNetworkExists(resourceName),
+					resource.TestCheckResourceAttr(resourceName, "subnet.#", "2"),
 					resource.TestCheckResourceAttrSet(resourceName, "subnet.1472110187.id"),
 				),
 			},
@@ -282,6 +315,32 @@ resource "azurerm_virtual_network" "test" {
 `, rInt, location, rInt)
 }
 
+func testAccAzureRMVirtualNetwork_basicUpdated(rInt int, location string) string {
+	return fmt.Sprintf(`
+resource "azurerm_resource_group" "test" {
+  name     = "acctestRG-%d"
+  location = "%s"
+}
+
+resource "azurerm_virtual_network" "test" {
+  name                = "acctestvirtnet%d"
+  address_space       = ["10.0.0.0/16", "10.10.0.0/16"]
+  location            = "${azurerm_resource_group.test.location}"
+  resource_group_name = "${azurerm_resource_group.test.name}"
+
+  subnet {
+    name           = "subnet1"
+    address_prefix = "10.0.1.0/24"
+  }
+
+  subnet {
+    name           = "subnet2"
+    address_prefix = "10.10.1.0/24"
+  }
+}
+`, rInt, location, rInt)
+}
+
 func testAccAzureRMVirtualNetwork_requiresImport(rInt int, location string) string {
 	template := testAccAzureRMVirtualNetwork_basic(rInt, location)
 	return fmt.Sprintf(`
@@ -351,7 +410,7 @@ resource "azurerm_virtual_network" "test" {
     address_prefix = "10.0.1.0/24"
   }
 
-  tags {
+  tags = {
     environment = "Production"
     cost_center = "MSFT"
   }
@@ -377,7 +436,7 @@ resource "azurerm_virtual_network" "test" {
     address_prefix = "10.0.1.0/24"
   }
 
-  tags {
+  tags = {
     environment = "staging"
   }
 }
@@ -405,7 +464,7 @@ resource "azurerm_virtual_network" "test" {
   address_space       = ["${var.network_cidr}"]
   location            = "${azurerm_resource_group.test.location}"
 
-  tags {
+  tags = {
     environment = "${var.environment}"
   }
 }
@@ -443,7 +502,7 @@ resource "azurerm_network_security_group" "test" {
     destination_address_prefix = "*"
   }
 
-  tags {
+  tags = {
     environment = "${var.environment}"
   }
 }

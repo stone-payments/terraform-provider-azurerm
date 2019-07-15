@@ -32,27 +32,27 @@ resource "azurerm_recovery_services_protection_policy_vm" "test" {
 
   timezone = "UTC"
 
-  backup = {
+  backup {
     frequency = "Daily"
     time      = "23:00"
   }
 
-  retention_daily = {
+  retention_daily {
     count = 10
   }
 
-  retention_weekly = {
+  retention_weekly {
     count    = 42
     weekdays = ["Sunday", "Wednesday", "Friday", "Saturday"]
   }
 
-  retention_monthly = {
+  retention_monthly {
     count    = 7
     weekdays = ["Sunday", "Wednesday"]
     weeks    = ["First", "Last"]
   }
 
-  retention_yearly = {
+  retention_yearly {
     count    = 77
     weekdays = ["Sunday"]
     weeks    = ["Last"]
@@ -129,7 +129,7 @@ The `retention_yearly` block supports:
 
 * `weeks` - (Required) The weeks of the month to retain backups of. Must be one of `First`, `Second`, `Third`, `Fourth`, `Last`.
 
-* `months` - (Required) The months of the year to retain backups of. Must be one of `January`, `Febuary`, `March`, `April`, `May`, `June`, `July`, `Augest`, `September`, `October`, `November` and `December`.
+* `months` - (Required) The months of the year to retain backups of. Must be one of `January`, `February`, `March`, `April`, `May`, `June`, `July`, `Augest`, `September`, `October`, `November` and `December`.
 
 ---
 

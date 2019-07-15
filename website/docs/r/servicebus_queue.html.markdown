@@ -8,7 +8,7 @@ description: |-
 
 # azurerm_servicebus_queue
 
-Manage and manage a ServiceBus Queue.
+Manage a ServiceBus Queue.
 
 ## Example Usage
 
@@ -24,7 +24,7 @@ resource "azurerm_servicebus_namespace" "example" {
   resource_group_name = "${azurerm_resource_group.example.name}"
   sku                 = "Standard"
 
-  tags {
+  tags = {
     source = "terraform"
   }
 }

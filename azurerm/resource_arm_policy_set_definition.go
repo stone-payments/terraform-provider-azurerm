@@ -110,7 +110,7 @@ func policyDefinitionsDiffSuppressFunc(k, old, new string, d *schema.ResourceDat
 }
 
 func resourceArmPolicySetDefinitionCreateUpdate(d *schema.ResourceData, meta interface{}) error {
-	client := meta.(*ArmClient).policySetDefinitionsClient
+	client := meta.(*ArmClient).policy.SetDefinitionsClient
 	ctx := meta.(*ArmClient).StopContext
 
 	name := d.Get("name").(string)
@@ -119,7 +119,7 @@ func resourceArmPolicySetDefinitionCreateUpdate(d *schema.ResourceData, meta int
 	description := d.Get("description").(string)
 	managementGroupID := d.Get("management_group_id").(string)
 
-	if requireResourcesToBeImported {
+	if requireResourcesToBeImported && d.IsNewResource() {
 		existing, err := getPolicySetDefinition(ctx, client, name, managementGroupID)
 		if err != nil {
 			if !utils.ResponseWasNotFound(existing.Response) {
@@ -206,7 +206,7 @@ func resourceArmPolicySetDefinitionCreateUpdate(d *schema.ResourceData, meta int
 }
 
 func resourceArmPolicySetDefinitionRead(d *schema.ResourceData, meta interface{}) error {
-	client := meta.(*ArmClient).policySetDefinitionsClient
+	client := meta.(*ArmClient).policy.SetDefinitionsClient
 	ctx := meta.(*ArmClient).StopContext
 
 	name, err := parsePolicySetDefinitionNameFromId(d.Id())
@@ -271,7 +271,7 @@ func resourceArmPolicySetDefinitionRead(d *schema.ResourceData, meta interface{}
 }
 
 func resourceArmPolicySetDefinitionDelete(d *schema.ResourceData, meta interface{}) error {
-	client := meta.(*ArmClient).policySetDefinitionsClient
+	client := meta.(*ArmClient).policy.SetDefinitionsClient
 	ctx := meta.(*ArmClient).StopContext
 
 	name, err := parsePolicySetDefinitionNameFromId(d.Id())

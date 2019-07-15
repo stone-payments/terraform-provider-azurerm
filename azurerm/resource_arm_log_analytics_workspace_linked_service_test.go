@@ -95,7 +95,7 @@ func TestAccAzureRMLogAnalyticsWorkspaceLinkedService_complete(t *testing.T) {
 }
 
 func testCheckAzureRMLogAnalyticsWorkspaceLinkedServiceDestroy(s *terraform.State) error {
-	conn := testAccProvider.Meta().(*ArmClient).linkedServicesClient
+	conn := testAccProvider.Meta().(*ArmClient).logAnalytics.LinkedServicesClient
 	ctx := testAccProvider.Meta().(*ArmClient).StopContext
 
 	for _, rs := range s.RootModule().Resources {
@@ -140,7 +140,7 @@ func testCheckAzureRMLogAnalyticsWorkspaceLinkedServiceExists(resourceName strin
 			return fmt.Errorf("Bad: no resource group found in state for Log Analytics Linked Service: '%s'", name)
 		}
 
-		conn := testAccProvider.Meta().(*ArmClient).linkedServicesClient
+		conn := testAccProvider.Meta().(*ArmClient).logAnalytics.LinkedServicesClient
 		ctx := testAccProvider.Meta().(*ArmClient).StopContext
 
 		resp, err := conn.Get(ctx, resourceGroup, workspaceName, lsName)
@@ -164,7 +164,8 @@ func testAccAzureRMLogAnalyticsWorkspaceLinkedService_basic(rInt int, location s
 resource "azurerm_log_analytics_workspace_linked_service" "test" {
   resource_group_name = "${azurerm_resource_group.test.name}"
   workspace_name      = "${azurerm_log_analytics_workspace.test.name}"
-  resource_id         = "${azurerm_automation_account.test.id}"}
+  resource_id         = "${azurerm_automation_account.test.id}"
+}
 `, template)
 }
 
@@ -211,7 +212,7 @@ resource "azurerm_automation_account" "test" {
     name = "Basic"
   }
 
-  tags {
+  tags = {
     Environment = "Test"
   }
 }

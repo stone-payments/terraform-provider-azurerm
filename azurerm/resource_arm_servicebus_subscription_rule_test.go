@@ -218,7 +218,7 @@ func testCheckAzureRMServiceBusSubscriptionRuleExists(resourceName string) resou
 			return fmt.Errorf("Bad: no resource group found in state for Subscription Rule: %q", ruleName)
 		}
 
-		client := testAccProvider.Meta().(*ArmClient).serviceBusSubscriptionRulesClient
+		client := testAccProvider.Meta().(*ArmClient).servicebus.SubscriptionRulesClient
 		ctx := testAccProvider.Meta().(*ArmClient).StopContext
 
 		resp, err := client.Get(ctx, resourceGroup, namespaceName, topicName, subscriptionName, ruleName)
@@ -315,7 +315,7 @@ resource "azurerm_servicebus_subscription_rule" "test" {
   resource_group_name = "${azurerm_resource_group.test.name}"
   filter_type         = "CorrelationFilter"
 
-  correlation_filter = {
+  correlation_filter {
     correlation_id      = "test_correlation_id"
     message_id          = "test_message_id"
     to                  = "test_to"
@@ -342,7 +342,7 @@ resource "azurerm_servicebus_subscription_rule" "test" {
   resource_group_name = "${azurerm_resource_group.test.name}"
   filter_type         = "CorrelationFilter"
 
-  correlation_filter = {
+  correlation_filter {
     correlation_id = "test_correlation_id"
     message_id     = "test_message_id"
   }
@@ -363,7 +363,7 @@ resource "azurerm_servicebus_subscription_rule" "test" {
   resource_group_name = "${azurerm_resource_group.test.name}"
   filter_type         = "CorrelationFilter"
 
-  correlation_filter = {
+  correlation_filter {
     correlation_id = "test_correlation_id"
     message_id     = "test_message_id_updated"
     reply_to       = "test_reply_to_added"
@@ -386,7 +386,7 @@ resource "azurerm_servicebus_subscription_rule" "test" {
   action              = "SET Test='true'"
   filter_type         = "CorrelationFilter"
 
-  correlation_filter = {
+  correlation_filter {
     correlation_id = "test_correlation_id"
     message_id     = "test_message_id"
   }

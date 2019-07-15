@@ -226,7 +226,7 @@ func testCheckAzureRMCdnProfileExists(resourceName string) resource.TestCheckFun
 			return fmt.Errorf("Bad: no resource group found in state for cdn profile: %s", name)
 		}
 
-		conn := testAccProvider.Meta().(*ArmClient).cdnProfilesClient
+		conn := testAccProvider.Meta().(*ArmClient).cdn.ProfilesClient
 		ctx := testAccProvider.Meta().(*ArmClient).StopContext
 
 		resp, err := conn.Get(ctx, resourceGroup, name)
@@ -243,7 +243,7 @@ func testCheckAzureRMCdnProfileExists(resourceName string) resource.TestCheckFun
 }
 
 func testCheckAzureRMCdnProfileDestroy(s *terraform.State) error {
-	conn := testAccProvider.Meta().(*ArmClient).cdnProfilesClient
+	conn := testAccProvider.Meta().(*ArmClient).cdn.ProfilesClient
 	ctx := testAccProvider.Meta().(*ArmClient).StopContext
 
 	for _, rs := range s.RootModule().Resources {
@@ -311,7 +311,7 @@ resource "azurerm_cdn_profile" "test" {
   resource_group_name = "${azurerm_resource_group.test.name}"
   sku                 = "Standard_Verizon"
 
-  tags {
+  tags = {
     environment = "Production"
     cost_center = "MSFT"
   }
@@ -332,7 +332,7 @@ resource "azurerm_cdn_profile" "test" {
   resource_group_name = "${azurerm_resource_group.test.name}"
   sku                 = "Standard_Verizon"
 
-  tags {
+  tags = {
     environment = "staging"
   }
 }

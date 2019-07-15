@@ -32,7 +32,7 @@ func resourceArmRecoveryServicesProtectedVm() *schema.Resource {
 
 		Schema: map[string]*schema.Schema{
 
-			"resource_group_name": resourceGroupNameSchema(),
+			"resource_group_name": azure.SchemaResourceGroupName(),
 
 			"recovery_vault_name": {
 				Type:     schema.TypeString,
@@ -64,7 +64,7 @@ func resourceArmRecoveryServicesProtectedVm() *schema.Resource {
 }
 
 func resourceArmRecoveryServicesProtectedVmCreateUpdate(d *schema.ResourceData, meta interface{}) error {
-	client := meta.(*ArmClient).recoveryServicesProtectedItemsClient
+	client := meta.(*ArmClient).recoveryServices.ProtectedItemsClient
 	ctx := meta.(*ArmClient).StopContext
 
 	resourceGroup := d.Get("resource_group_name").(string)
@@ -89,7 +89,7 @@ func resourceArmRecoveryServicesProtectedVmCreateUpdate(d *schema.ResourceData, 
 
 	log.Printf("[DEBUG] Creating/updating Recovery Service Protected VM %s (resource group %q)", protectedItemName, resourceGroup)
 
-	if requireResourcesToBeImported {
+	if requireResourcesToBeImported && d.IsNewResource() {
 		existing, err2 := client.Get(ctx, vaultName, resourceGroup, "Azure", containerName, protectedItemName, "")
 		if err2 != nil {
 			if !utils.ResponseWasNotFound(existing.Response) {
@@ -129,7 +129,7 @@ func resourceArmRecoveryServicesProtectedVmCreateUpdate(d *schema.ResourceData, 
 }
 
 func resourceArmRecoveryServicesProtectedVmRead(d *schema.ResourceData, meta interface{}) error {
-	client := meta.(*ArmClient).recoveryServicesProtectedItemsClient
+	client := meta.(*ArmClient).recoveryServices.ProtectedItemsClient
 	ctx := meta.(*ArmClient).StopContext
 
 	id, err := parseAzureResourceID(d.Id())
@@ -173,7 +173,7 @@ func resourceArmRecoveryServicesProtectedVmRead(d *schema.ResourceData, meta int
 }
 
 func resourceArmRecoveryServicesProtectedVmDelete(d *schema.ResourceData, meta interface{}) error {
-	client := meta.(*ArmClient).recoveryServicesProtectedItemsClient
+	client := meta.(*ArmClient).recoveryServices.ProtectedItemsClient
 	ctx := meta.(*ArmClient).StopContext
 
 	id, err := parseAzureResourceID(d.Id())

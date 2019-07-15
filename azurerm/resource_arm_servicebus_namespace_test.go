@@ -146,8 +146,42 @@ func TestAccAzureRMServiceBusNamespace_premium(t *testing.T) {
 	})
 }
 
+func TestAccAzureRMServiceBusNamespace_basicCapacity(t *testing.T) {
+	ri := tf.AccRandTimeInt()
+	config := testAccAzureRMServiceBusNamespace_basicCapacity(ri, testLocation())
+
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t) },
+		Providers:    testAccProviders,
+		CheckDestroy: testCheckAzureRMServiceBusNamespaceDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config:      config,
+				ExpectError: regexp.MustCompile("Service Bus SKU \"Basic\" only supports `capacity` of 0"),
+			},
+		},
+	})
+}
+
+func TestAccAzureRMServiceBusNamespace_premiumCapacity(t *testing.T) {
+	ri := tf.AccRandTimeInt()
+	config := testAccAzureRMServiceBusNamespace_premiumCapacity(ri, testLocation())
+
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t) },
+		Providers:    testAccProviders,
+		CheckDestroy: testCheckAzureRMServiceBusNamespaceDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config:      config,
+				ExpectError: regexp.MustCompile("Service Bus SKU \"Premium\" only supports `capacity` of 1, 2 or 4"),
+			},
+		},
+	})
+}
+
 func testCheckAzureRMServiceBusNamespaceDestroy(s *terraform.State) error {
-	client := testAccProvider.Meta().(*ArmClient).serviceBusNamespacesClient
+	client := testAccProvider.Meta().(*ArmClient).servicebus.NamespacesClient
 	ctx := testAccProvider.Meta().(*ArmClient).StopContext
 
 	for _, rs := range s.RootModule().Resources {
@@ -186,7 +220,7 @@ func testCheckAzureRMServiceBusNamespaceExists(resourceName string) resource.Tes
 			return fmt.Errorf("Bad: no resource group found in state for Service Bus Namespace: %s", namespaceName)
 		}
 
-		client := testAccProvider.Meta().(*ArmClient).serviceBusNamespacesClient
+		client := testAccProvider.Meta().(*ArmClient).servicebus.NamespacesClient
 		ctx := testAccProvider.Meta().(*ArmClient).StopContext
 
 		resp, err := client.Get(ctx, resourceGroup, namespaceName)
@@ -260,6 +294,40 @@ resource "azurerm_servicebus_namespace" "test" {
   resource_group_name = "${azurerm_resource_group.test.name}"
   sku                 = "Premium"
   capacity            = 1
+}
+`, rInt, location, rInt)
+}
+
+func testAccAzureRMServiceBusNamespace_basicCapacity(rInt int, location string) string {
+	return fmt.Sprintf(`
+resource "azurerm_resource_group" "test" {
+  name     = "acctestRG-%d"
+  location = "%s"
+}
+
+resource "azurerm_servicebus_namespace" "test" {
+  name                = "acctestservicebusnamespace-%d"
+  location            = "${azurerm_resource_group.test.location}"
+  resource_group_name = "${azurerm_resource_group.test.name}"
+  sku                 = "Basic"
+  capacity            = 1
+}
+`, rInt, location, rInt)
+}
+
+func testAccAzureRMServiceBusNamespace_premiumCapacity(rInt int, location string) string {
+	return fmt.Sprintf(`
+resource "azurerm_resource_group" "test" {
+  name     = "acctestRG-%d"
+  location = "%s"
+}
+
+resource "azurerm_servicebus_namespace" "test" {
+  name                = "acctestservicebusnamespace-%d"
+  location            = "${azurerm_resource_group.test.location}"
+  resource_group_name = "${azurerm_resource_group.test.name}"
+  sku                 = "Premium"
+  capacity            = 0
 }
 `, rInt, location, rInt)
 }

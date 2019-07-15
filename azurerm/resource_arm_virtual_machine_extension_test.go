@@ -214,7 +214,7 @@ resource "azurerm_storage_account" "test" {
   account_tier             = "Standard"
   account_replication_type = "LRS"
 
-  tags {
+  tags = {
     environment = "staging"
   }
 }
@@ -273,7 +273,7 @@ resource "azurerm_virtual_machine_extension" "test" {
 	}
 SETTINGS
 
-  tags {
+  tags = {
     environment = "Production"
   }
 }
@@ -284,7 +284,6 @@ func testAccAzureRMVirtualMachineExtension_requiresImport(rInt int, location str
 	template := testAccAzureRMVirtualMachineExtension_basic(rInt, location)
 	return fmt.Sprintf(`
 %s
-
 
 resource "azurerm_virtual_machine_extension" "import" {
   name                 = "${azurerm_virtual_machine_extension.test.name}"
@@ -340,7 +339,7 @@ resource "azurerm_storage_account" "test" {
   account_tier             = "Standard"
   account_replication_type = "LRS"
 
-  tags {
+  tags = {
     environment = "staging"
   }
 }
@@ -399,7 +398,7 @@ resource "azurerm_virtual_machine_extension" "test" {
 	}
 SETTINGS
 
-  tags {
+  tags = {
     environment = "Production"
     cost_center = "MSFT"
   }
@@ -447,7 +446,7 @@ resource "azurerm_storage_account" "test" {
   account_tier             = "Standard"
   account_replication_type = "LRS"
 
-  tags {
+  tags = {
     environment = "staging"
   }
 }
@@ -565,7 +564,7 @@ resource "azurerm_storage_account" "test" {
   account_tier             = "Standard"
   account_replication_type = "LRS"
 
-  tags {
+  tags = {
     environment = "staging"
   }
 }
@@ -625,7 +624,7 @@ resource "azurerm_virtual_machine_extension" "test" {
 	}
 SETTINGS
 
-  tags {
+  tags = {
     environment = "Production"
   }
 }

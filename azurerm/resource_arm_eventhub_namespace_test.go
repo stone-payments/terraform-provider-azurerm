@@ -347,7 +347,7 @@ func TestAccAzureRMEventHubNamespace_autoInfalteDisabledWithAutoInflateUnits(t *
 }
 
 func testCheckAzureRMEventHubNamespaceDestroy(s *terraform.State) error {
-	conn := testAccProvider.Meta().(*ArmClient).eventHubNamespacesClient
+	conn := testAccProvider.Meta().(*ArmClient).eventhub.NamespacesClient
 	ctx := testAccProvider.Meta().(*ArmClient).StopContext
 
 	for _, rs := range s.RootModule().Resources {
@@ -384,7 +384,7 @@ func testCheckAzureRMEventHubNamespaceExists(resourceName string) resource.TestC
 			return fmt.Errorf("Bad: no resource group found in state for Event Hub Namespace: %s", namespaceName)
 		}
 
-		conn := testAccProvider.Meta().(*ArmClient).eventHubNamespacesClient
+		conn := testAccProvider.Meta().(*ArmClient).eventhub.NamespacesClient
 		ctx := testAccProvider.Meta().(*ArmClient).StopContext
 
 		resp, err := conn.Get(ctx, resourceGroup, namespaceName)
@@ -441,8 +441,7 @@ resource "azurerm_eventhub_namespace" "test" {
   name                = "acctesteventhubnamespace-%d"
   location            = "${azurerm_resource_group.test.location}"
   resource_group_name = "${azurerm_resource_group.test.name}"
-  sku                 = "Basic"
-  sku                 = "Basic"
+  sku                 = "Standard"
   kafka_enabled       = true
 }
 `, rInt, location, rInt)
@@ -513,7 +512,7 @@ resource "azurerm_eventhub_namespace" "test" {
   resource_group_name = "${azurerm_resource_group.test.name}"
   sku                 = "Basic"
 
-  tags {
+  tags = {
     environment = "Production"
   }
 }

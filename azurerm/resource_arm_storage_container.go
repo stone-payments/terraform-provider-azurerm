@@ -9,9 +9,10 @@ import (
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/storage"
-	"github.com/Azure/go-autorest/autorest/azure"
+	azauto "github.com/Azure/go-autorest/autorest/azure"
 	"github.com/hashicorp/terraform/helper/resource"
 	"github.com/hashicorp/terraform/helper/schema"
+	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/helpers/azure"
 	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/helpers/tf"
 )
 
@@ -23,6 +24,7 @@ func resourceArmStorageContainer() *schema.Resource {
 		Update:        resourceArmStorageContainerCreateUpdate,
 		MigrateState:  resourceStorageContainerMigrateState,
 		SchemaVersion: 1,
+
 		Importer: &schema.ResourceImporter{
 			State: schema.ImportStatePassthrough,
 		},
@@ -34,7 +36,7 @@ func resourceArmStorageContainer() *schema.Resource {
 				ForceNew:     true,
 				ValidateFunc: validateArmStorageContainerName,
 			},
-			"resource_group_name": resourceGroupNameSchema(),
+			"resource_group_name": azure.SchemaResourceGroupName(),
 			"storage_account_name": {
 				Type:     schema.TypeString,
 				Required: true,
@@ -174,20 +176,30 @@ func resourceArmStorageContainerRead(d *schema.ResourceData, meta interface{}) e
 		return nil
 	}
 
-	containers, err := blobClient.ListContainers(storage.ListContainersParameters{
+	var container *storage.Container
+	listParams := storage.ListContainersParameters{
 		Prefix:  id.containerName,
 		Timeout: 90,
-	})
-	if err != nil {
-		return fmt.Errorf("Failed to retrieve storage containers in account %q: %s", id.containerName, err)
 	}
 
-	var container *storage.Container
-	for _, cont := range containers.Containers {
-		if cont.Name == id.containerName {
-			container = &cont
+	for {
+		resp, err := blobClient.ListContainers(listParams)
+		if err != nil {
+			return fmt.Errorf("Failed to retrieve storage resp in account %q: %s", id.containerName, err)
+		}
+
+		for _, c := range resp.Containers {
+			if c.Name == id.containerName {
+				container = &c
+				break
+			}
+		}
+
+		if resp.NextMarker == "" {
 			break
 		}
+
+		listParams.Marker = resp.NextMarker
 	}
 
 	if container == nil {
@@ -277,7 +289,7 @@ type storageContainerId struct {
 	containerName      string
 }
 
-func parseStorageContainerID(input string, environment azure.Environment) (*storageContainerId, error) {
+func parseStorageContainerID(input string, environment azauto.Environment) (*storageContainerId, error) {
 	uri, err := url.Parse(input)
 	if err != nil {
 		return nil, fmt.Errorf("Error parsing %q as URI: %+v", input, err)
